@@ -1,0 +1,24 @@
+#include "chatting.h"
+
+using namespace std;
+
+int main(){
+  int a;
+  cout << "PORT : " ;
+  cin >> a;
+  CHAT_Server chat1("111",a);
+}
+
+
+#include "chatting.h"
+
+using namespace std;
+
+int main(){
+  int a = 0;
+  while(1){
+    cout << "PORT : " ;
+    cin >> a;
+    CHAT_Client chat1("111",a);
+  }
+}
