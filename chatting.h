@@ -33,7 +33,7 @@ class CHAT_Server{
   socklen_t client_addr_size;
   pthread_t pt[MAX_CLIENT+1];
   string IP,msg;
-  int status,PORT,client_socket[MAX_CLIENT],server_socket;
+  int status,PORT,client_socket[MAX_CLIENT+1],server_socket;
 
 public:
 
@@ -62,14 +62,13 @@ public:
     listen(server_socket,5);
     printf("리슨 ----\n");
 
-    pthread_create(&pt[MAX_CLIENT], nullptr, &CHAT_Server::sendThread, this);
-
+    // pthread_create(&pt[MAX_CLIENT], nullptr, &CHAT_Server::sendThread, this);
 
     while(1)
     {
       client_addr_size = sizeof(client_addr_size);
       int connectcheck = 0;
-      for (size_t i = 0; i < MAX_CLIENT; i++)
+      for (size_t i = 0; i <= MAX_CLIENT; i++)
       {
         if(client_socket[i] == -1){
           client_socket[i] = accept(server_socket,(struct sockaddr*)&client_addr,&client_addr_size);
@@ -78,6 +77,15 @@ public:
             return;
           }
           pthread_create(&pt[i], nullptr, &CHAT_Server::recvThread, (void*)&client_socket[i]);
+  
+          if(i == MAX_CLIENT){
+            sendmsg(client_socket[i],"연결 불가");
+            pthread_join(client_socket[i],NULL);
+            close(client_socket[i]);
+            client_socket[i] = -1;
+            continue;
+          }
+
           client_number += 1;
           connectcheck = 1;
         }
@@ -88,10 +96,6 @@ public:
         if(connectcheck == 1){
           cout << "--------accept client --------" << endl;
           break;
-        }
-        else{
-          cout << "최대 연결됨" <<endl;
-          sleep(1);
         }
       }
 
@@ -109,9 +113,9 @@ public:
       // }
     }
 
-    for(int i=1;i<=client_number;i++){
-      pthread_join(pt[i],(void**)&status);
-    }
+    // for(int i=1;i<=client_number;i++){
+    //   pthread_join(pt[i],(void**)&status);
+    // }
   }
 
   static void* sendThread(void* arg) {
@@ -120,7 +124,6 @@ public:
   }
 
   static void* recvThread(void* arg) {
-      // CHAT_Server* chat = static_cast<CHAT_Server*>(arg);
       int *socket = (int*)arg;
       int exitThread = 0;
       while (1) {
@@ -141,7 +144,7 @@ public:
 
             string servermsg = receivedMsg + "(" + "from " + receivedName + ")" + "(" + currentTimeString +")";
 
-            cout << *socket << "Received message: " << servermsg << endl;
+            cout << "Received message: " << servermsg << endl;
 
             ofstream ou("serverlog.txt", ios::app);
             savemsg(&ou,servermsg);
@@ -154,6 +157,7 @@ public:
           if(exitThread == 1){
             cout << receivedName << " 종료메세지 수신" << endl;
             sendmsg(*socket,"통신 쓰레드 종료");
+            pthread_join(*socket,NULL);
             close(*socket);
             *socket = -1;
             client_number -= 1;
@@ -219,12 +223,11 @@ public:
     client_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     client_addr.sin_port = htons(PORT);
 
-    // connect(client_socket,(const struct sockaddr*)&client_addr,sizeof(client_addr));
     while(1){
       status = connect(client_socket,(const struct sockaddr*)&client_addr,sizeof(client_addr));
       if(status < 0){
         cout << "connect fail" << endl;
-        continue;;
+        return;
       }
       break;
     }
