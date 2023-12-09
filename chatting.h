@@ -67,6 +67,7 @@ public:
 
       for (size_t i = 0; i <= MAX_CLIENT; i++)
       {
+        // -1 이면 미사용 소켓 배열
         if(client_socket[i] == -1){
           client_socket[i] = accept(server_socket,(struct sockaddr*)&client_addr,&client_addr_size);
           if(client_socket[i] < 0){
@@ -76,6 +77,7 @@ public:
           pthread_create(&pt[i*2+1], nullptr, &CHAT_Server::recvThread, (void*)&client_socket[i]);
           pthread_create(&pt[i*2], nullptr, &CHAT_Server::sendThread, this);
 
+          //최대치 만큼 연결된 상태 이므로 추가 연결요청에대해 거절 메세지 송신
           if(i == MAX_CLIENT){
             sendmsg(client_socket[i],"deny");
             client_socket[i] = -1;
@@ -91,6 +93,8 @@ public:
           continue;
         }
         
+
+        //For 문을 돌면서 연결 된 소켓이 있음
         if(connectcheck == 1){
           cout << endl;
           cout << "--------accept client --------" << endl;
@@ -100,7 +104,7 @@ public:
       }
     }
   }
-
+// 송신 쓰레드
   static void* sendThread(void* arg) {
       CHAT_Server* chat = static_cast<CHAT_Server*>(arg);
       // int *socket = (int*)arg;
@@ -108,6 +112,7 @@ public:
       while(1){
         cin >> msg;
 
+        // 메세지를 주고 받을수도 있지만 코드에서는 모든 소켓 종료시만 통과되도록
         if(msg != "end") continue;
 
         for(int i=0;i<MAX_CLIENT;i++){
@@ -121,7 +126,7 @@ public:
       }
       return nullptr;
   }
-
+// 수신 쓰레드
   static void* recvThread(void* arg) {
       int *socket = (int*)arg;
       int exitThread = 0;
@@ -130,29 +135,28 @@ public:
           string receivedMsg = recvmsg(*socket);
           string receivedName = recvmsg(*socket);
           if(receivedMsg.size() > 0){
+            // 메세지 받은시간 추가
             time_t currentTime;
             time(&currentTime);
             tm* localTime = localtime(&currentTime);
-            
-            // std::strftime 함수를 사용하여 문자열로 변환합니다.
             const int bufferSize = 80;
             char buffer[bufferSize];
             strftime(buffer, bufferSize, "%Y-%m-%d %H:%M:%S", localTime);
-
-            // 결과를 std::string으로 변환
             string currentTimeString(buffer);
-
             string servermsg = receivedMsg + "(" + "from " + receivedName + ")" + "(" + currentTimeString +")";
 
-            cout << endl;
+            // 받은 메세지 출력
             cout << "Received message: " << servermsg << endl;
 
+            //받은 메세지 저장
             ofstream ou("serverlog.txt", ios::app);
             savemsg(&ou,servermsg);
 
+            //end 수신시 소켓 연결 종료 플래그 활성화
             if("end" == receivedMsg) {
               exitThread = 1;
             }
+            //end 수신시 client 입력어 불러오기 활성화
             if("road" == receivedMsg){
               printcheck = 1;
             }
@@ -188,6 +192,7 @@ public:
       return nullptr;
   }
 
+//메세지 송신
   static void sendmsg(int socket, const string &msg) {
       // 문자열의 길이를 먼저 전송
       size_t length = msg.size();
@@ -196,7 +201,7 @@ public:
       // 실제 문자열을 전송
       send(socket, msg.c_str(), length, 0);
   }
-
+//메세지 수신
   static string recvmsg(int socket) {
       // 문자열의 길이를 먼저 수신
       size_t length;
@@ -210,7 +215,7 @@ public:
 
       return string(buffer);
   }
-
+//메세지 저장
   static void savemsg(ofstream* ou,const string &msg)
   {
     if (ou->is_open()) {
@@ -226,7 +231,7 @@ class CHAT_Client{
   string IP,msg,cname;
   int client_socket,server_socket,PORT,status;
 public:
-
+//동일 ip 생성자
   CHAT_Client(string name,int port)
   :IP("0"),PORT(port),server_socket(0),cname(name)
   { 
@@ -248,7 +253,7 @@ public:
 
     pthread_join(pt[0],NULL);
   }
-
+//다른 ip 생성자
   CHAT_Client(string& name,string& ip,int port)
   :PORT(port),server_socket(0),cname(name)
   { 
@@ -274,7 +279,7 @@ public:
 
     pthread_join(pt[0],NULL);
   }
-
+//메세지 송신
   static void sendmsg(int socket, const string &msg) {
       // 문자열의 길이를 먼저 전송
       size_t length = msg.size();
@@ -283,6 +288,7 @@ public:
       // 실제 문자열을 전송
       send(socket, msg.c_str(), length, 0);
   }
+//메세지 수신
   static string recvmsg(int socket) {
       // 문자열의 길이를 먼저 수신
       size_t length;
@@ -296,7 +302,7 @@ public:
 
       return string(buffer);
   }
-
+//송신 쓰레드
   static void* sendThread(void* arg) {
       CHAT_Client* chat = static_cast<CHAT_Client*>(arg);
       string msg;
@@ -316,7 +322,7 @@ public:
       }
       return nullptr;
   }
-
+//수신 쓰레드
   static void* recvThread(void* arg) {
       // int *socket = (int*)arg;
       CHAT_Client* chat = (CHAT_Client*)arg;
@@ -337,7 +343,7 @@ public:
       }
       return nullptr;
   }
-
+//입력된 메세지 출력
   static void roadmsg(void* arg){
     CHAT_Client* chat = (CHAT_Client*)arg;
     string logfilename = chat->cname +".txt";
@@ -348,7 +354,7 @@ public:
     }
     iu.close();
   }
-
+//메세지 저장
   static void savemsg(ofstream* ou,const string &msg)
   {
     if (ou->is_open()) {
