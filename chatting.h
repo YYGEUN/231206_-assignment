@@ -32,13 +32,11 @@ class CHAT_Server{
   struct sockaddr_in client_addr,server_addr;	
   socklen_t client_addr_size;
   pthread_t pt[(MAX_CLIENT+1)*2];
-  string IP,msg;
+  string msg;
   int status,PORT,client_socket[MAX_CLIENT+1],server_socket;
 
 public:
-
-  CHAT_Server(string ip,int port)
-  :IP(ip),PORT(port)
+  CHAT_Server(int port):PORT(port)
   { 
     client_number = 0;
     server_socket = socket(AF_INET,SOCK_STREAM,0);
@@ -183,6 +181,7 @@ public:
               sendmsg(*socket,logmsg);
               n++ ;
             }
+            printcheck = 0;
             iu.close();
           }
       }
@@ -251,14 +250,29 @@ public:
   }
 
   CHAT_Client(string& name,string& ip,int port)
-  :IP(ip),PORT(port),server_socket(0),cname(name)
+  :PORT(port),server_socket(0),cname(name)
   { 
     client_socket = socket(AF_INET,SOCK_STREAM,0);
     client_addr.sin_family = AF_INET;
-    client_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (inet_pton(AF_INET, ip.c_str(), &(client_addr.sin_addr)) <= 0) {
+        perror("inet_pton");
+        exit(EXIT_FAILURE);
+    }
     client_addr.sin_port = htons(PORT);
 
-    connect(client_socket,(const struct sockaddr*)&client_addr,sizeof(client_addr));
+    while(1){
+      status = connect(client_socket,(const struct sockaddr*)&client_addr,sizeof(client_addr));
+      if(status != 0){
+        cout << "connect fail" << endl;
+        return;
+      }
+      break;
+    }
+    pthread_create(&pt[0], nullptr, &CHAT_Client::recvThread, this);
+    pthread_create(&pt[1], nullptr, &CHAT_Client::sendThread, this);
+
+    pthread_join(pt[0],NULL);
   }
 
   static void sendmsg(int socket, const string &msg) {
@@ -297,7 +311,6 @@ public:
         savemsg(&ou,msg);
         
         if(msg == "end") {
-          sleep(1);
           exit(0);
         }
       }
